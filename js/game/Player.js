@@ -9,19 +9,21 @@ export class Player {
     }
 
     createModel() {
+        const player = new THREE.Group();
+
         // Corpo
-        const bodyGeometry = new THREE.BoxGeometry(1, 2, 1);
+        const bodyGeometry = new THREE.BoxGeometry(1, 1.2, 0.6);
         const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
-        this.player = new THREE.Mesh(bodyGeometry, bodyMaterial);
-        this.player.position.set(0, 1, 5);
-        this.scene.add(this.player);
+        this.body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        this.body.position.y = 1.6;
+        player.add(this.body);
 
         // Cabeça
         const headGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-        const headMaterial = new THREE.MeshStandardMaterial({ color: 0xffcccc });
-        const head = new THREE.Mesh(headGeometry, headMaterial);
-        head.position.y = 1.4;
-        this.player.add(head);
+        const headMaterial = new THREE.MeshStandardMaterial({ color: 0xffb6b6 });
+        this.head = new THREE.Mesh(headGeometry, headMaterial);
+        this.head.position.y = 2.3;
+        player.add(this.head);
 
         // Olhos
         const eyeGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
@@ -29,29 +31,50 @@ export class Player {
         
         const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
         leftEye.position.set(-0.2, 0, 0.4);
-        head.add(leftEye);
+        this.head.add(leftEye);
         
         const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
         rightEye.position.set(0.2, 0, 0.4);
-        head.add(rightEye);
+        this.head.add(rightEye);
+
+        // Pernas
+        const legGeometry = new THREE.BoxGeometry(0.3, 0.8, 0.3);
+        const legMaterial = new THREE.MeshStandardMaterial({ color: 0x4444ff });
+        
+        // Perna esquerda
+        this.leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+        this.leftLeg.position.set(0.2, 0.8, 0);
+        player.add(this.leftLeg);
+        
+        // Perna direita
+        this.rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+        this.rightLeg.position.set(-0.2, 0.8, 0);
+        player.add(this.rightLeg);
 
         // Braços
-        const armGeometry = new THREE.BoxGeometry(0.3, 1, 0.3);
+        const armGeometry = new THREE.BoxGeometry(0.25, 0.8, 0.25);
         const armMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
         
-        // Braço esquerdo
-        const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-        leftArm.position.set(-0.65, 0.3, 0);
-        this.player.add(leftArm);
-        
         // Braço direito (que segura a vara)
-        const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-        rightArm.position.set(0.65, 0.3, 0);
-        rightArm.rotation.x = Math.PI / 12; // Leve rotação para frente
-        this.player.add(rightArm);
+        this.rightArm = new THREE.Mesh(armGeometry, armMaterial);
+        this.rightArm.position.set(-0.625, 1.6, 0);
+        player.add(this.rightArm);
+        
+        // Braço esquerdo
+        this.leftArm = new THREE.Mesh(armGeometry, armMaterial);
+        this.leftArm.position.set(0.625, 1.6, 0);
+        player.add(this.leftArm);
 
-        // Agora a vara será filha do braço direito
-        this.setupFishingRod(rightArm);
+        this.player = player;
+        this.scene.add(this.player);
+
+        // Variáveis para animação
+        this.walkCycle = 0;
+        this.walkSpeed = 0.15;
+        this.legRotationMax = Math.PI / 4;
+
+        // Adiciona a vara de pesca ao braço direito
+        this.setupFishingRod(this.rightArm);
     }
 
     setupFishingRod(rightArm) {
@@ -71,17 +94,22 @@ export class Player {
         rod.rotation.x = Math.PI / 2;
         this.fishingRod.add(rod);
 
-        // Linha de pesca
-        this.fishingLine = new THREE.Group();
-        const lineGeometry = new THREE.BoxGeometry(0.01, 2, 0.01);
-        const lineMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
-        this.line = new THREE.Mesh(lineGeometry, lineMaterial);
-        this.line.position.y = -1;
-        this.line.position.z = 2; // Move para a ponta da vara
-        this.fishingLine.add(this.line);
-        this.fishingRod.add(this.fishingLine);
+        // Linha de pesca - ajustada para cima e direita
+        const lineGeometry = new THREE.BufferGeometry();
+        const lineVertices = new Float32Array([
+            0.2, 0.2, 2,    // Início da linha (ponta mais alta da vara, mais para direita e cima)
+            0.2, -2, 2    // Final da linha (isca)
+        ]);
+        lineGeometry.setAttribute('position', new THREE.BufferAttribute(lineVertices, 3));
+        
+        const lineMaterial = new THREE.LineBasicMaterial({ 
+            color: 0xcccccc,
+            linewidth: 2
+        });
+        this.line = new THREE.Line(lineGeometry, lineMaterial);
+        this.fishingRod.add(this.line);
 
-        // Isca
+        // Isca - ajustada para acompanhar a linha
         const baitGeometry = new THREE.SphereGeometry(0.08, 8, 8);
         const baitMaterial = new THREE.MeshStandardMaterial({ 
             color: 0xff0000,
@@ -89,16 +117,17 @@ export class Player {
             roughness: 0.7
         });
         this.bait = new THREE.Mesh(baitGeometry, baitMaterial);
-        this.bait.position.y = -2;
-        this.fishingLine.add(this.bait);
+        this.bait.position.set(0.2, -2, 2); // Alinhada com o final da linha
+        this.fishingRod.add(this.bait);
 
         // Inicialmente invisíveis
         this.line.visible = false;
         this.bait.visible = false;
 
         // Posiciona a vara no braço direito
-        this.fishingRod.position.set(0, -0.3, 0.2);
+        this.fishingRod.position.set(0.1, 0, 0.2);
         this.fishingRod.rotation.x = Math.PI / 6;
+        this.fishingRod.rotation.z = -Math.PI / 6;
         rightArm.add(this.fishingRod);
     }
 
@@ -120,10 +149,41 @@ export class Player {
 
             const eased = 1 - Math.pow(1 - progress, 3);
             
+            // Atualiza a rotação da vara
             this.fishingRod.rotation.x = throwAnimation.start + 
                 (throwAnimation.end - throwAnimation.start) * eased;
 
-            this.fishingLine.scale.y = 1 + progress;
+            // Calcula a posição da ponta da vara no espaço local da vara
+            const rodLength = 2;
+            const rodTipLocal = new THREE.Vector3(0, 0, rodLength);
+            
+            // Cria uma matriz de transformação para a ponta da vara
+            const matrix = new THREE.Matrix4();
+            matrix.makeRotationX(this.fishingRod.rotation.x);
+            rodTipLocal.applyMatrix4(matrix);
+
+            // Atualiza a posição da linha
+            const linePositions = this.line.geometry.attributes.position.array;
+            const baitDistance = 2 + progress * 2; // Distância da isca
+
+            // Ponto inicial (ponta da vara)
+            linePositions[0] = rodTipLocal.x;
+            linePositions[1] = rodTipLocal.y;
+            linePositions[2] = rodTipLocal.z;
+
+            // Ponto final (isca)
+            linePositions[3] = rodTipLocal.x;
+            linePositions[4] = rodTipLocal.y - baitDistance;
+            linePositions[5] = rodTipLocal.z;
+
+            this.line.geometry.attributes.position.needsUpdate = true;
+
+            // Atualiza a posição da isca
+            this.bait.position.set(
+                rodTipLocal.x,
+                rodTipLocal.y - baitDistance,
+                rodTipLocal.z
+            );
 
             if (progress < 1) {
                 requestAnimationFrame(animate);
@@ -148,15 +208,45 @@ export class Player {
 
             const eased = 1 - Math.pow(1 - progress, 3);
             
+            // Atualiza a rotação da vara
             this.fishingRod.rotation.x = retrieveAnimation.start + 
                 (retrieveAnimation.end - retrieveAnimation.start) * eased;
 
-            this.fishingLine.scale.y = 2 - progress;
+            // Calcula a posição da ponta da vara no espaço local da vara
+            const rodLength = 2;
+            const rodTipLocal = new THREE.Vector3(0, 0, rodLength);
+            
+            // Cria uma matriz de transformação para a ponta da vara
+            const matrix = new THREE.Matrix4();
+            matrix.makeRotationX(this.fishingRod.rotation.x);
+            rodTipLocal.applyMatrix4(matrix);
+
+            // Atualiza a posição da linha
+            const linePositions = this.line.geometry.attributes.position.array;
+            const baitDistance = 4 - progress * 2; // Reduz a distância da isca
+
+            // Ponto inicial (ponta da vara)
+            linePositions[0] = rodTipLocal.x;
+            linePositions[1] = rodTipLocal.y;
+            linePositions[2] = rodTipLocal.z;
+
+            // Ponto final (isca)
+            linePositions[3] = rodTipLocal.x;
+            linePositions[4] = rodTipLocal.y - baitDistance;
+            linePositions[5] = rodTipLocal.z;
+
+            this.line.geometry.attributes.position.needsUpdate = true;
+
+            // Atualiza a posição da isca
+            this.bait.position.set(
+                rodTipLocal.x,
+                rodTipLocal.y - baitDistance,
+                rodTipLocal.z
+            );
 
             if (progress < 1) {
                 requestAnimationFrame(animate);
             } else {
-                // Esconde a linha e a isca quando a animação terminar
                 this.line.visible = false;
                 this.bait.visible = false;
             }
@@ -190,33 +280,55 @@ export class Player {
         const speed = 0.1;
         let moved = false;
         let newDirection = new THREE.Vector3(0, 0, 0);
+        let newPosition = this.player.position.clone();
 
         if (this.keys[CONTROLS.MOVE_FORWARD]) {
-            this.player.position.z -= speed;
+            newPosition.z -= speed;
             newDirection.z = -1;
             moved = true;
         }
         if (this.keys[CONTROLS.MOVE_BACKWARD]) {
-            this.player.position.z += speed;
+            newPosition.z += speed;
             newDirection.z = 1;
             moved = true;
         }
         if (this.keys[CONTROLS.MOVE_LEFT]) {
-            this.player.position.x -= speed;
+            newPosition.x -= speed;
             newDirection.x = -1;
             moved = true;
         }
         if (this.keys[CONTROLS.MOVE_RIGHT]) {
-            this.player.position.x += speed;
+            newPosition.x += speed;
             newDirection.x = 1;
             moved = true;
         }
 
-        // Rotação do personagem
-        if (moved && (newDirection.x !== 0 || newDirection.z !== 0)) {
-            newDirection.normalize();
-            const angle = Math.atan2(newDirection.x, newDirection.z);
-            this.player.rotation.y = angle;
+        // Verifica colisão antes de mover
+        if (moved && !this.scene.environment.checkCollision(newPosition, 0.5)) {
+            this.player.position.copy(newPosition);
+            
+            if (newDirection.x !== 0 || newDirection.z !== 0) {
+                newDirection.normalize();
+                const angle = Math.atan2(newDirection.x, newDirection.z);
+                this.player.rotation.y = angle;
+            }
+
+            // Anima as pernas durante o movimento
+            this.walkCycle += this.walkSpeed;
+            const legRotation = Math.sin(this.walkCycle) * this.legRotationMax;
+            
+            this.leftLeg.rotation.x = legRotation;
+            this.rightLeg.rotation.x = -legRotation;
+            
+            // Anima os braços em oposição às pernas
+            this.leftArm.rotation.x = -legRotation;
+            this.rightArm.rotation.x = legRotation;
+        } else {
+            // Reseta a posição das pernas quando parado
+            this.leftLeg.rotation.x = 0;
+            this.rightLeg.rotation.x = 0;
+            this.leftArm.rotation.x = 0;
+            this.rightArm.rotation.x = 0;
         }
     }
 } 

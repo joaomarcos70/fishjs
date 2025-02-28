@@ -9,6 +9,7 @@ export class Game {
     constructor() {
         this.setupScene();
         this.environment = new Environment(this.scene);
+        this.scene.environment = this.environment;
         this.player = new Player(this.scene);
         this.messageSystem = new MessageSystem();
         this.uiManager = new UIManager();
