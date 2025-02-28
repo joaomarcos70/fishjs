@@ -75,18 +75,21 @@ class FishingGame {
     }
 
     createPlayer() {
+        // Corpo
         const bodyGeometry = new THREE.BoxGeometry(1, 2, 1);
         const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
         this.player = new THREE.Mesh(bodyGeometry, bodyMaterial);
         this.player.position.set(0, 1, 5);
         this.scene.add(this.player);
 
+        // Cabeça
         const headGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
         const headMaterial = new THREE.MeshStandardMaterial({ color: 0xffcccc });
         const head = new THREE.Mesh(headGeometry, headMaterial);
         head.position.y = 1.4;
         this.player.add(head);
 
+        // Olhos
         const eyeGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
         const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
         
@@ -98,33 +101,61 @@ class FishingGame {
         rightEye.position.set(0.2, 0, 0.4);
         head.add(rightEye);
 
+        // Boca
         const mouthGeometry = new THREE.BoxGeometry(0.3, 0.05, 0.1);
         const mouthMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
         const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
         mouth.position.set(0, -0.2, 0.4);
         head.add(mouth);
 
+        // Braços
+        const armGeometry = new THREE.BoxGeometry(0.3, 1, 0.3);
+        const armMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
+        
+        // Braço esquerdo
+        const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+        leftArm.position.set(-0.65, 0.3, 0);
+        this.player.add(leftArm);
+        
+        // Braço direito (que segura a vara)
+        const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+        rightArm.position.set(0.65, 0.3, 0);
+        // Rotaciona levemente o braço direito para frente
+        rightArm.rotation.x = Math.PI / 12;
+        this.player.add(rightArm);
+
+        // Vara de pesca (anexada ao braço direito)
         this.fishingRod = new THREE.Group();
         
+        // Cabo da vara
         const handleGeometry = new THREE.CylinderGeometry(0.05, 0.07, 0.5);
         const rodMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
         const handle = new THREE.Mesh(handleGeometry, rodMaterial);
+        handle.rotation.x = Math.PI / 2;
         this.fishingRod.add(handle);
 
+        // Vara principal
         const rodGeometry = new THREE.CylinderGeometry(0.03, 0.05, 2);
         const rod = new THREE.Mesh(rodGeometry, rodMaterial);
-        rod.position.y = 1.25;
-        rod.position.z = 0;
+        rod.position.z = 1;
+        rod.rotation.x = Math.PI / 2;
         this.fishingRod.add(rod);
 
+        // Linha de pesca
         this.fishingLine = new THREE.Group();
         const lineGeometry = new THREE.BoxGeometry(0.01, 2, 0.01);
         const lineMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
         this.line = new THREE.Mesh(lineGeometry, lineMaterial);
+        
+        // Ajusta a posição da linha para sair da ponta da vara
         this.line.position.y = -1;
+        this.line.position.x = 0;
+        this.line.position.z = 2; // Posiciona na ponta da vara
+        
         this.fishingLine.add(this.line);
-        rod.add(this.fishingLine);
+        this.fishingRod.add(this.fishingLine); // Anexa ao grupo da vara em vez do rod
 
+        // Isca
         const baitGeometry = new THREE.SphereGeometry(0.08, 8, 8);
         const baitMaterial = new THREE.MeshStandardMaterial({ 
             color: 0xff0000,
@@ -132,11 +163,20 @@ class FishingGame {
             roughness: 0.7
         });
         this.bait = new THREE.Mesh(baitGeometry, baitMaterial);
-        this.bait.position.y = -2;
+        this.bait.position.y = -2; // Posição relativa à linha
         this.fishingLine.add(this.bait);
 
-        this.fishingRod.position.set(0.5, 0.5, 0.3);
-        this.player.add(this.fishingRod);
+        // Ajusta a posição da vara no braço direito
+        this.fishingRod.position.set(0, -0.3, 0.2); // Movido para baixo e um pouco para frente
+        this.fishingRod.rotation.x = Math.PI / 6; // Leve inclinação inicial
+        rightArm.add(this.fishingRod);
+
+        // Ajusta a rotação inicial da linha
+        this.fishingLine.rotation.x = Math.PI / 2; // Ajusta para apontar para baixo
+
+        // Após criar a linha e a isca, deixe-as invisíveis inicialmente
+        this.line.visible = false;
+        this.bait.visible = false;
 
         this.playerDirection = new THREE.Vector3(0, 0, -1);
     }
@@ -223,10 +263,14 @@ class FishingGame {
             this.canCatch = false;
             this.catchAttempts = 0;
             
+            // Torna a linha e a isca visíveis
+            this.line.visible = true;
+            this.bait.visible = true;
+            
             // Animação de jogar a vara
             const throwAnimation = {
                 start: this.fishingRod.rotation.x,
-                end: -Math.PI / 3,
+                end: -Math.PI / 2.5, // Ajustado para um ângulo mais natural
                 duration: 500,
                 startTime: Date.now()
             };
@@ -393,7 +437,7 @@ class FishingGame {
         // Animação de retirar a vara
         const retrieveAnimation = {
             start: this.fishingRod.rotation.x,
-            end: 0,
+            end: Math.PI / 6, // Volta para a posição inicial ajustada
             duration: 300,
             startTime: Date.now()
         };
@@ -412,6 +456,10 @@ class FishingGame {
 
             if (progress < 1) {
                 requestAnimationFrame(animate);
+            } else {
+                // Esconde a linha e a isca quando a animação terminar
+                this.line.visible = false;
+                this.bait.visible = false;
             }
         };
 
