@@ -26,6 +26,13 @@ class FishingGame {
         this.isFishing = false;
         this.lastSpacePress = 0;
 
+        this.canCatch = false;
+        this.currentFish = null;
+        this.fishingInterval = null;
+        this.catchAttempts = 0;
+
+        this.fishingTimeout = null;
+
         this.animate();
 
         window.addEventListener('resize', () => this.onWindowResize());
@@ -69,7 +76,7 @@ class FishingGame {
 
     createPlayer() {
         const bodyGeometry = new THREE.BoxGeometry(1, 2, 1);
-        const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xff6b6b });
         this.player = new THREE.Mesh(bodyGeometry, bodyMaterial);
         this.player.position.set(0, 1, 5);
         this.scene.add(this.player);
@@ -80,29 +87,58 @@ class FishingGame {
         head.position.y = 1.4;
         this.player.add(head);
 
+        const eyeGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+        const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        
+        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        leftEye.position.set(-0.2, 0, 0.4);
+        head.add(leftEye);
+        
+        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        rightEye.position.set(0.2, 0, 0.4);
+        head.add(rightEye);
+
+        const mouthGeometry = new THREE.BoxGeometry(0.3, 0.05, 0.1);
+        const mouthMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+        const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
+        mouth.position.set(0, -0.2, 0.4);
+        head.add(mouth);
+
         this.fishingRod = new THREE.Group();
-        const rodGeometry = new THREE.CylinderGeometry(0.05, 0.05, 2);
+        
+        const handleGeometry = new THREE.CylinderGeometry(0.05, 0.07, 0.5);
         const rodMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+        const handle = new THREE.Mesh(handleGeometry, rodMaterial);
+        this.fishingRod.add(handle);
+
+        const rodGeometry = new THREE.CylinderGeometry(0.03, 0.05, 2);
         const rod = new THREE.Mesh(rodGeometry, rodMaterial);
-        rod.rotation.x = Math.PI / 4;
-        rod.position.set(0.5, 1, 0);
+        rod.position.y = 1.25;
+        rod.position.z = 0;
         this.fishingRod.add(rod);
 
         this.fishingLine = new THREE.Group();
-        const lineGeometry = new THREE.BoxGeometry(0.01, 1.5, 0.01);
+        const lineGeometry = new THREE.BoxGeometry(0.01, 2, 0.01);
         const lineMaterial = new THREE.MeshStandardMaterial({ color: 0xcccccc });
         this.line = new THREE.Mesh(lineGeometry, lineMaterial);
         this.line.position.y = -1;
         this.fishingLine.add(this.line);
         rod.add(this.fishingLine);
 
-        const baitGeometry = new THREE.SphereGeometry(0.05, 8, 8);
-        const baitMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+        const baitGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+        const baitMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0xff0000,
+            metalness: 0.3,
+            roughness: 0.7
+        });
         this.bait = new THREE.Mesh(baitGeometry, baitMaterial);
         this.bait.position.y = -2;
         this.fishingLine.add(this.bait);
 
+        this.fishingRod.position.set(0.5, 0.5, 0.3);
         this.player.add(this.fishingRod);
+
+        this.playerDirection = new THREE.Vector3(0, 0, -1);
     }
 
     setupControls() {
@@ -118,12 +154,22 @@ class FishingGame {
                 this.keys[e.key.toLowerCase()] = true;
             }
             
+            // Tecla espaço para jogar/retirar vara
             if (e.code === 'Space') {
                 const currentTime = Date.now();
                 if (currentTime - this.lastSpacePress > 500) {
                     this.lastSpacePress = currentTime;
-                    this.handleFishing();
+                    if (this.isFishing) {
+                        this.endFishing(false, 'Vara retirada da água');
+                    } else {
+                        this.startFishing();
+                    }
                 }
+            }
+
+            // Tecla F para fisgar
+            if (e.code === 'KeyF' && this.isFishing) {
+                this.attemptCatch();
             }
         });
 
@@ -136,104 +182,295 @@ class FishingGame {
 
     setupFishing() {
         this.fishTypes = [
-            { name: 'Sardinha', difficulty: 1, timeWindow: 1000 },
-            { name: 'Atum', difficulty: 2, timeWindow: 800 },
-            { name: 'Salmão', difficulty: 3, timeWindow: 600 }
+            { 
+                name: 'Sardinha', 
+                difficulty: 0.5,
+                timeWindow: 1000,
+                catchWindow: 15,
+                points: 10,
+                color: 0x87CEEB
+            },
+            { 
+                name: 'Atum', 
+                difficulty: 1,
+                timeWindow: 800,
+                catchWindow: 12,
+                points: 20,
+                color: 0x4169E1
+            },
+            { 
+                name: 'Salmão', 
+                difficulty: 1.5,
+                timeWindow: 600,
+                catchWindow: 10,
+                points: 30,
+                color: 0xFF6B6B
+            }
         ];
         this.fishCount = 0;
+        this.totalPoints = 0;
     }
 
     handleFishing() {
         if (!this.isFishing) {
             this.startFishing();
-        } else {
-            const progressBar = document.getElementById('fishingProgress');
-            const progress = parseInt(progressBar.style.width) || 0;
-            
-            if (progress >= 45 && progress <= 55) {
-                this.catchFish();
-            }
         }
     }
 
     startFishing() {
         if (!this.isFishing) {
             this.isFishing = true;
+            this.canCatch = false;
+            this.catchAttempts = 0;
             
-            this.fishingRod.rotation.x = -Math.PI / 4;
-            this.fishingLine.scale.y = 2;
-            this.bait.visible = true;
+            // Animação de jogar a vara
+            const throwAnimation = {
+                start: this.fishingRod.rotation.x,
+                end: -Math.PI / 3,
+                duration: 500,
+                startTime: Date.now()
+            };
 
-            const fishingBar = document.getElementById('fishingBar');
-            fishingBar.style.display = 'block';
+            const animate = () => {
+                const now = Date.now();
+                const elapsed = now - throwAnimation.startTime;
+                const progress = Math.min(elapsed / throwAnimation.duration, 1);
+
+                const eased = 1 - Math.pow(1 - progress, 3);
+                
+                this.fishingRod.rotation.x = throwAnimation.start + 
+                    (throwAnimation.end - throwAnimation.start) * eased;
+
+                this.fishingLine.scale.y = 1 + progress;
+
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            };
+
+            animate();
             
+            this.showMessage('Vara lançada! Aguarde um peixe...', '#4169E1');
+            
+            // Escolhe um peixe aleatório
+            this.currentFish = this.fishTypes[Math.floor(Math.random() * this.fishTypes.length)];
+            
+            // Tempo aleatório até o peixe morder
             setTimeout(() => {
-                this.triggerFishingMinigame();
+                if (this.isFishing) {
+                    this.showMessage('Um peixe mordeu! Pressione F quando a barra estiver verde!', '#ff9800');
+                    this.triggerFishingMinigame();
+                }
             }, Math.random() * 2000 + 1000);
         }
     }
 
     triggerFishingMinigame() {
-        const randomFish = this.fishTypes[Math.floor(Math.random() * this.fishTypes.length)];
+        if (!this.currentFish) {
+            this.currentFish = this.fishTypes[0];
+        }
+
+        const fishingBar = document.getElementById('fishingBar');
         const progressBar = document.getElementById('fishingProgress');
-        let progress = 0;
+        
+        fishingBar.style.display = 'block';
+        progressBar.style.width = '50%';
+        
+        let progress = 50;
+        this.canCatch = false;
+
+        if (this.fishingInterval) {
+            clearInterval(this.fishingInterval);
+        }
+
+        progressBar.style.backgroundColor = '#4CAF50';
         
         const updateProgress = () => {
-            progress += 1;
+            if (!this.isFishing || !this.currentFish) {
+                clearInterval(this.fishingInterval);
+                return;
+            }
+
+            const fishMovement = Math.sin(Date.now() * 0.003) * this.currentFish.difficulty;
+            progress = 50 + fishMovement * 25;
             progressBar.style.width = `${progress}%`;
             
-            if (progress >= 100) {
-                clearInterval(progressInterval);
-                this.endFishing(false);
-            }
+            const catchZone = 50;
+            this.canCatch = Math.abs(progress - catchZone) <= this.currentFish.catchWindow;
+            
+            progressBar.style.backgroundColor = this.canCatch ? '#4CAF50' : '#ff6b6b';
         };
 
-        const progressInterval = setInterval(updateProgress, randomFish.timeWindow / 100);
+        this.fishingInterval = setInterval(updateProgress, 16);
 
-        const catchFish = (e) => {
-            if (e.key === ' ' && progress >= 45 && progress <= 55) {
-                clearInterval(progressInterval);
-                this.fishCount++;
-                document.getElementById('fishCount').textContent = this.fishCount;
-                this.endFishing(true);
+        if (this.fishingTimeout) {
+            clearTimeout(this.fishingTimeout);
+        }
+        this.fishingTimeout = setTimeout(() => {
+            if (this.isFishing && this.fishingInterval) {
+                clearInterval(this.fishingInterval);
+                this.endFishing(false, 'Tempo esgotado!');
             }
-        };
-
-        window.addEventListener('keydown', catchFish);
-        setTimeout(() => {
-            window.removeEventListener('keydown', catchFish);
-        }, 10000);
+        }, 20000);
     }
 
-    endFishing(success) {
+    attemptCatch() {
+        if (!this.currentFish || !this.isFishing) return;
+        
+        this.catchAttempts++;
+        
+        if (this.canCatch) {
+            if (this.fishingInterval) {
+                clearInterval(this.fishingInterval);
+            }
+            
+            this.fishCount++;
+            this.totalPoints += this.currentFish.points;
+            
+            const fishCountElement = document.getElementById('fishCount');
+            if (fishCountElement) {
+                fishCountElement.textContent = this.fishCount;
+            }
+            
+            this.showMessage(`Pegou um ${this.currentFish.name}! +${this.currentFish.points} pontos`, '#4CAF50');
+            this.endFishing(true);
+        } else {
+            // Peixe escapa imediatamente se errar a fisgada
+            this.showMessage('O peixe escapou! Timing errado!', '#ff6b6b');
+            this.endFishing(false);
+        }
+    }
+
+    showMessage(text, color) {
+        let messageEl = document.getElementById('fishingMessage');
+        if (!messageEl) {
+            messageEl = document.createElement('div');
+            messageEl.id = 'fishingMessage';
+            messageEl.style.position = 'absolute';
+            messageEl.style.top = '60%';
+            messageEl.style.left = '50%';
+            messageEl.style.transform = 'translate(-50%, -50%)';
+            messageEl.style.padding = '10px';
+            messageEl.style.borderRadius = '5px';
+            messageEl.style.fontFamily = 'Arial, sans-serif';
+            messageEl.style.fontWeight = 'bold';
+            messageEl.style.transition = 'opacity 0.3s';
+            messageEl.style.zIndex = '1000';
+            document.body.appendChild(messageEl);
+        }
+
+        messageEl.style.backgroundColor = color;
+        messageEl.style.color = 'white';
+        messageEl.textContent = text;
+        messageEl.style.opacity = '1';
+
+        setTimeout(() => {
+            messageEl.style.opacity = '0';
+        }, 3000);
+    }
+
+    endFishing(success, message = '') {
+        if (this.fishingTimeout) {
+            clearTimeout(this.fishingTimeout);
+            this.fishingTimeout = null;
+        }
+
+        if (this.fishingInterval) {
+            clearInterval(this.fishingInterval);
+        }
+
         this.isFishing = false;
-        document.getElementById('fishingBar').style.display = 'none';
-        document.getElementById('fishingProgress').style.width = '0%';
+        this.canCatch = false;
         
-        this.fishingRod.rotation.x = 0;
-        this.fishingLine.scale.y = 1;
+        const fishingBar = document.getElementById('fishingBar');
+        const progressBar = document.getElementById('fishingProgress');
         
-        if (success) {
-            console.log('Peixe capturado!');
+        if (fishingBar && progressBar) {
+            fishingBar.style.display = 'none';
+            progressBar.style.width = '0%';
+        }
+        
+        // Animação de retirar a vara
+        const retrieveAnimation = {
+            start: this.fishingRod.rotation.x,
+            end: 0,
+            duration: 300,
+            startTime: Date.now()
+        };
+
+        const animate = () => {
+            const now = Date.now();
+            const elapsed = now - retrieveAnimation.startTime;
+            const progress = Math.min(elapsed / retrieveAnimation.duration, 1);
+
+            const eased = 1 - Math.pow(1 - progress, 3);
+            
+            this.fishingRod.rotation.x = retrieveAnimation.start + 
+                (retrieveAnimation.end - retrieveAnimation.start) * eased;
+
+            this.fishingLine.scale.y = 2 - progress;
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+
+        animate();
+        
+        if (success && this.bait) {
             this.bait.visible = false;
             setTimeout(() => {
-                this.bait.visible = true;
+                if (this.bait) {
+                    this.bait.visible = true;
+                }
             }, 500);
-        } else {
-            console.log('O peixe escapou!');
         }
+        
+        if (message) {
+            this.showMessage(message, success ? '#4CAF50' : '#ff6b6b');
+        }
+
+        this.currentFish = null;
     }
 
     update() {
         const speed = 0.1;
-        if (this.keys.w) this.player.position.z -= speed;
-        if (this.keys.s) this.player.position.z += speed;
-        if (this.keys.a) this.player.position.x -= speed;
-        if (this.keys.d) this.player.position.x += speed;
+        let moved = false;
+        let newDirection = new THREE.Vector3(0, 0, 0);
+
+        if (this.keys.w) {
+            this.player.position.z -= speed;
+            newDirection.z = -1;
+            moved = true;
+        }
+        if (this.keys.s) {
+            this.player.position.z += speed;
+            newDirection.z = 1;
+            moved = true;
+        }
+        if (this.keys.a) {
+            this.player.position.x -= speed;
+            newDirection.x = -1;
+            moved = true;
+        }
+        if (this.keys.d) {
+            this.player.position.x += speed;
+            newDirection.x = 1;
+            moved = true;
+        }
+
+        if (moved && (newDirection.x !== 0 || newDirection.z !== 0)) {
+            newDirection.normalize();
+            const angle = Math.atan2(newDirection.x, newDirection.z);
+            this.player.rotation.y = angle;
+        }
 
         if (this.isFishing) {
             this.fishingLine.rotation.x = Math.sin(Date.now() * 0.003) * 0.1;
-            this.bait.position.y = -2 + Math.sin(Date.now() * 0.003) * 0.1;
+            this.bait.position.y = -2 + Math.sin(Date.now() * 0.003) * 0.2;
+
+            const intensity = (Math.sin(Date.now() * 0.005) + 1) / 2;
+            this.bait.material.emissive.setRGB(intensity * 0.5, 0, 0);
         }
     }
 

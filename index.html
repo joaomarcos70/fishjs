@@ -36,7 +36,7 @@
             width: 0%;
             height: 100%;
             background: #4CAF50;
-            transition: width 0.1s linear;
+            transition: width 0.1s linear, background-color 0.3s;
         }
         #instructions {
             position: absolute;
@@ -46,6 +46,10 @@
             background: rgba(0, 0, 0, 0.5);
             padding: 10px;
             border-radius: 5px;
+        }
+        #fishCount {
+            font-weight: bold;
+            color: #4CAF50;
         }
     </style>
 </head>
@@ -59,7 +63,8 @@
     <div id="instructions">
         <p>Controles:</p>
         <p>WASD - Mover personagem</p>
-        <p>ESPAÇO - Pescar / Capturar peixe</p>
+        <p>ESPAÇO - Jogar/Retirar vara</p>
+        <p>F - Fisgar peixe</p>
     </div>
     <script type="module" src="game.js"></script>
 </body>
