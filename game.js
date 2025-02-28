@@ -233,6 +233,7 @@ class FishingGame {
                 timeWindow: 1000,
                 catchWindow: 15,
                 points: 10,
+                price: 50,        // 50 moedas
                 color: 0x87CEEB,
                 icon: '🐟'
             },
@@ -242,6 +243,7 @@ class FishingGame {
                 timeWindow: 800,
                 catchWindow: 12,
                 points: 20,
+                price: 120,       // 120 moedas
                 color: 0x4169E1,
                 icon: '🐠'
             },
@@ -251,22 +253,22 @@ class FishingGame {
                 timeWindow: 600,
                 catchWindow: 10,
                 points: 30,
+                price: 200,       // 200 moedas
                 color: 0xFF6B6B,
                 icon: '🐡'
             }
         ];
 
-        // Inicializa o inventário após definir os tipos de peixes
         this.inventory = {
             'Sardinha': 0,
             'Atum': 0,
             'Salmão': 0
         };
 
+        this.money = 0;  // Adiciona dinheiro ao jogador
         this.fishCount = 0;
         this.totalPoints = 0;
         
-        // Atualiza o display do inventário
         this.updateInventoryDisplay();
     }
 
@@ -276,14 +278,31 @@ class FishingGame {
 
         this.fishTypes.forEach(fishType => {
             const count = this.inventory[fishType.name];
+            const totalValue = count * fishType.price;
             const fishDiv = document.createElement('div');
             fishDiv.className = 'fish-item';
             fishDiv.innerHTML = `
                 <span>${fishType.icon} ${fishType.name}:</span>
-                <span class="fish-count">${count}</span>
+                <span class="fish-details">
+                    <span class="fish-count">${count}</span>
+                    <span class="fish-price">(${fishType.price} 💰)</span>
+                </span>
             `;
             fishList.appendChild(fishDiv);
         });
+
+        // Adiciona o valor total do inventário
+        const totalValue = this.fishTypes.reduce((total, fishType) => {
+            return total + (this.inventory[fishType.name] * fishType.price);
+        }, 0);
+
+        const totalDiv = document.createElement('div');
+        totalDiv.className = 'inventory-total';
+        totalDiv.innerHTML = `
+            <span>Valor total:</span>
+            <span class="total-value">${totalValue} 💰</span>
+        `;
+        fishList.appendChild(totalDiv);
 
         document.getElementById('totalPoints').textContent = this.totalPoints;
     }
@@ -587,6 +606,41 @@ class FishingGame {
             this.totalPoints = gameData.totalPoints;
             this.fishCount = gameData.fishCount;
             this.updateInventoryDisplay();
+        }
+    }
+
+    // Adicione estes métodos à classe FishingGame
+    sellFish(fishName, amount = 1) {
+        if (this.inventory[fishName] >= amount) {
+            const fishType = this.fishTypes.find(f => f.name === fishName);
+            const value = fishType.price * amount;
+            
+            this.inventory[fishName] -= amount;
+            this.money += value;
+            
+            this.updateInventoryDisplay();
+            this.showMessage(`Vendeu ${amount}x ${fishName} por ${value} 💰`, '#ffd700');
+            
+            return true;
+        }
+        return false;
+    }
+
+    sellAllFish() {
+        let totalValue = 0;
+        this.fishTypes.forEach(fishType => {
+            const count = this.inventory[fishType.name];
+            if (count > 0) {
+                const value = count * fishType.price;
+                totalValue += value;
+                this.inventory[fishType.name] = 0;
+            }
+        });
+        
+        if (totalValue > 0) {
+            this.money += totalValue;
+            this.updateInventoryDisplay();
+            this.showMessage(`Vendeu todo o inventário por ${totalValue} 💰`, '#ffd700');
         }
     }
 }

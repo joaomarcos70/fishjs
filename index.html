@@ -2,75 +2,7 @@
 <html>
 <head>
     <title>Jogo de Pesca 3D</title>
-    <style>
-        body { 
-            margin: 0; 
-            overflow: hidden;
-            font-family: Arial, sans-serif;
-        }
-        canvas { 
-            display: block; 
-        }
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
-        }
-        #fishingBar {
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            width: 300px;
-            height: 30px;
-            background: rgba(0, 0, 0, 0.7);
-            display: none;
-            transform: translate(-50%, -50%);
-            border-radius: 15px;
-            overflow: hidden;
-        }
-        #fishingProgress {
-            width: 0%;
-            height: 100%;
-            background: #4CAF50;
-            transition: width 0.1s linear, background-color 0.3s;
-        }
-        #instructions {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            color: white;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
-        }
-        #fishCount {
-            font-weight: bold;
-            color: #4CAF50;
-        }
-        #inventory {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            color: white;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
-            min-width: 200px;
-        }
-        .fish-item {
-            display: flex;
-            justify-content: space-between;
-            margin: 5px 0;
-        }
-        .fish-count {
-            color: #4CAF50;
-            font-weight: bold;
-        }
-    </style>
+    <link rel="stylesheet" href="styles/main.css">
 </head>
 <body>
     <div id="ui">
@@ -93,6 +25,6 @@
             <span id="totalPoints" class="fish-count">0</span>
         </div>
     </div>
-    <script type="module" src="game.js"></script>
+    <script type="module" src="js/main.js"></script>
 </body>
 </html> 
