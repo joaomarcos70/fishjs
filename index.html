@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Jogo de Pesca 3D</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        canvas { 
+            display: block; 
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #fishingBar {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 300px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            transform: translate(-50%, -50%);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        #fishingProgress {
+            width: 0%;
+            height: 100%;
+            background: #4CAF50;
+            transition: width 0.1s linear;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>Peixes capturados: <span id="fishCount">0</span></div>
+    </div>
+    <div id="fishingBar">
+        <div id="fishingProgress"></div>
+    </div>
+    <div id="instructions">
+        <p>Controles:</p>
+        <p>WASD - Mover personagem</p>
+        <p>ESPAÇO - Pescar / Capturar peixe</p>
+    </div>
+    <script type="module" src="game.js"></script>
+</body>
+</html> 
