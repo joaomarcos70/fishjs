@@ -2,6 +2,10 @@ import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
 
 class FishingGame {
     constructor() {
+        // Primeiro, configure os tipos de peixes e o inventário
+        this.setupFishing();
+        
+        // Depois, configure a cena e outros elementos
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -21,7 +25,6 @@ class FishingGame {
         this.createEnvironment();
         this.createPlayer();
         this.setupControls();
-        this.setupFishing();
 
         this.isFishing = false;
         this.lastSpacePress = 0;
@@ -30,8 +33,10 @@ class FishingGame {
         this.currentFish = null;
         this.fishingInterval = null;
         this.catchAttempts = 0;
-
         this.fishingTimeout = null;
+
+        // Carrega o progresso salvo (opcional)
+        this.loadProgress();
 
         this.animate();
 
@@ -228,7 +233,8 @@ class FishingGame {
                 timeWindow: 1000,
                 catchWindow: 15,
                 points: 10,
-                color: 0x87CEEB
+                color: 0x87CEEB,
+                icon: '🐟'
             },
             { 
                 name: 'Atum', 
@@ -236,7 +242,8 @@ class FishingGame {
                 timeWindow: 800,
                 catchWindow: 12,
                 points: 20,
-                color: 0x4169E1
+                color: 0x4169E1,
+                icon: '🐠'
             },
             { 
                 name: 'Salmão', 
@@ -244,11 +251,41 @@ class FishingGame {
                 timeWindow: 600,
                 catchWindow: 10,
                 points: 30,
-                color: 0xFF6B6B
+                color: 0xFF6B6B,
+                icon: '🐡'
             }
         ];
+
+        // Inicializa o inventário após definir os tipos de peixes
+        this.inventory = {
+            'Sardinha': 0,
+            'Atum': 0,
+            'Salmão': 0
+        };
+
         this.fishCount = 0;
         this.totalPoints = 0;
+        
+        // Atualiza o display do inventário
+        this.updateInventoryDisplay();
+    }
+
+    updateInventoryDisplay() {
+        const fishList = document.getElementById('fishList');
+        fishList.innerHTML = '';
+
+        this.fishTypes.forEach(fishType => {
+            const count = this.inventory[fishType.name];
+            const fishDiv = document.createElement('div');
+            fishDiv.className = 'fish-item';
+            fishDiv.innerHTML = `
+                <span>${fishType.icon} ${fishType.name}:</span>
+                <span class="fish-count">${count}</span>
+            `;
+            fishList.appendChild(fishDiv);
+        });
+
+        document.getElementById('totalPoints').textContent = this.totalPoints;
     }
 
     handleFishing() {
@@ -368,18 +405,21 @@ class FishingGame {
                 clearInterval(this.fishingInterval);
             }
             
+            // Atualiza o inventário
+            this.inventory[this.currentFish.name]++;
             this.fishCount++;
             this.totalPoints += this.currentFish.points;
             
-            const fishCountElement = document.getElementById('fishCount');
-            if (fishCountElement) {
-                fishCountElement.textContent = this.fishCount;
-            }
+            // Atualiza os displays
+            this.updateInventoryDisplay();
+            document.getElementById('fishCount').textContent = this.fishCount;
             
-            this.showMessage(`Pegou um ${this.currentFish.name}! +${this.currentFish.points} pontos`, '#4CAF50');
+            this.showMessage(
+                `Pegou um ${this.currentFish.name}! ${this.currentFish.icon} +${this.currentFish.points} pontos`, 
+                '#4CAF50'
+            );
             this.endFishing(true);
         } else {
-            // Peixe escapa imediatamente se errar a fisgada
             this.showMessage('O peixe escapou! Timing errado!', '#ff6b6b');
             this.endFishing(false);
         }
@@ -526,6 +566,28 @@ class FishingGame {
         requestAnimationFrame(() => this.animate());
         this.update();
         this.renderer.render(this.scene, this.camera);
+    }
+
+    // Método para salvar o progresso (opcional)
+    saveProgress() {
+        const gameData = {
+            inventory: this.inventory,
+            totalPoints: this.totalPoints,
+            fishCount: this.fishCount
+        };
+        localStorage.setItem('fishingGameSave', JSON.stringify(gameData));
+    }
+
+    // Método para carregar o progresso (opcional)
+    loadProgress() {
+        const savedData = localStorage.getItem('fishingGameSave');
+        if (savedData) {
+            const gameData = JSON.parse(savedData);
+            this.inventory = gameData.inventory;
+            this.totalPoints = gameData.totalPoints;
+            this.fishCount = gameData.fishCount;
+            this.updateInventoryDisplay();
+        }
     }
 }
 

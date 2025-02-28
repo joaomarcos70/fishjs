@@ -51,6 +51,25 @@
             font-weight: bold;
             color: #4CAF50;
         }
+        #inventory {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: white;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            min-width: 200px;
+        }
+        .fish-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        .fish-count {
+            color: #4CAF50;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -65,6 +84,14 @@
         <p>WASD - Mover personagem</p>
         <p>ESPAÇO - Jogar/Retirar vara</p>
         <p>F - Fisgar peixe</p>
+    </div>
+    <div id="inventory">
+        <h3>Inventário de Peixes</h3>
+        <div id="fishList"></div>
+        <div class="fish-item">
+            <span>Total de pontos:</span>
+            <span id="totalPoints" class="fish-count">0</span>
+        </div>
     </div>
     <script type="module" src="game.js"></script>
 </body>
